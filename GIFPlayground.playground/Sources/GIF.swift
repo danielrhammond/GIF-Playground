@@ -9,22 +9,25 @@ private let kGIFPropertiesDelayKey = kCGImagePropertyGIFDelayTime as String
 private let kGIFPropertiesLoopCountKey = kCGImagePropertyGIFLoopCount as String
 
 public struct Animation {
-    let frames: [UIImage]
+    let frames: [CGImageRef]
     let frameDelay: NSTimeInterval
-    private(set) public lazy var animatedImage: UIImage? = {
-        return UIImage.animatedImageWithImages(self.frames, duration: (self.frameDelay * NSTimeInterval(self.frames.count)))
-    }()
-    private(set) public lazy var animatedGIFRepresentation: NSData = {
+
+    public func animatedImage() -> UIImage? {
+        let images = frames.map { UIImage(CGImage: $0) }
+        return UIImage.animatedImageWithImages(images, duration: (self.frameDelay * NSTimeInterval(self.frames.count)))
+    }
+    
+    public func animatedGIFRepresentation() -> NSData {
         let data = NSMutableData()
         let targetProperties: CFDictionaryRef = [kGIFPropertiesKey: [kGIFPropertiesLoopCountKey: 0]]
         let target = CGImageDestinationCreateWithData(data, kUTTypeGIF, self.frames.count, targetProperties)!
         CGImageDestinationSetProperties(target, targetProperties)
+        let frameProperties: CFDictionaryRef = [kGIFPropertiesKey: [kGIFPropertiesDelayKey: 0.1]]
+        for frame in frames {
+            CGImageDestinationAddImage(target, frame, frameProperties)
+        }
+        CGImageDestinationFinalize(target)
         return data
-    }()
-    
-    init(frames: [UIImage], frameDelay: NSTimeInterval) {
-        self.frames = frames
-        self.frameDelay = frameDelay
     }
 }
 
@@ -36,7 +39,7 @@ extension Animation {
         guard let context = CGBitmapContextCreate(nil, width, height, 8, 0, colorSpace, bitmapInfo) else {
             throw CreateError("Unable to create CGContext")
         }
-        var rawFrames = [CGImageRef]()
+        var frames = [CGImageRef]()
         for frameIndex in 0..<frameCount {
             CGContextSaveGState(context)
             renderer(frameIndex, context)
@@ -44,9 +47,8 @@ extension Animation {
             guard let frameImage = CGBitmapContextCreateImage(context) else {
                 throw CreateError("Coultn't create image for frame \(frameIndex)")
             }
-            rawFrames.append(frameImage)
+            frames.append(frameImage)
         }
-        let frames = rawFrames.map { UIImage(CGImage: $0) }
         return Animation(frames: frames, frameDelay: frameDelay)
     }
 }
