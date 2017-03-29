@@ -9,43 +9,43 @@ private let kGIFPropertiesDelayKey = kCGImagePropertyGIFDelayTime as String
 private let kGIFPropertiesLoopCountKey = kCGImagePropertyGIFLoopCount as String
 
 public struct Animation {
-    let frames: [CGImageRef]
-    let frameDelay: NSTimeInterval
+    let frames: [CGImage]
+    let frameDelay: TimeInterval
 
     public func animatedImage() -> UIImage? {
-        let images = frames.map { UIImage(CGImage: $0) }
-        return UIImage.animatedImageWithImages(images, duration: (self.frameDelay * NSTimeInterval(self.frames.count)))
+        let images = frames.map { UIImage(cgImage: $0) }
+        return UIImage.animatedImage(with: images, duration: (self.frameDelay * TimeInterval(self.frames.count)))
     }
     
-    public func animatedGIFRepresentation() -> NSData {
+    public func animatedGIFRepresentation() -> Data {
         let data = NSMutableData()
-        let targetProperties: CFDictionaryRef = [kGIFPropertiesKey: [kGIFPropertiesLoopCountKey: 0]]
+        let targetProperties = [kGIFPropertiesKey: [kGIFPropertiesLoopCountKey: 0]] as CFDictionary
         let target = CGImageDestinationCreateWithData(data, kUTTypeGIF, self.frames.count, targetProperties)!
         CGImageDestinationSetProperties(target, targetProperties)
-        let frameProperties: CFDictionaryRef = [kGIFPropertiesKey: [kGIFPropertiesDelayKey: 0.1]]
+        let frameProperties = [kGIFPropertiesKey: [kGIFPropertiesDelayKey: 0.1]] as CFDictionary
         for frame in frames {
             CGImageDestinationAddImage(target, frame, frameProperties)
         }
         CGImageDestinationFinalize(target)
-        return data
+        return data as Data
     }
 }
 
 extension Animation {
     public typealias FrameRenderer = (Int, CGContext) -> Void
     /// Creates an animated GIF with the specified frame count, duration, size and a function to draw a frame given an index and a CGContext
-    public static func create(frameCount: Int, width: Int, height: Int, frameDelay: NSTimeInterval, renderer: FrameRenderer) throws -> Animation {
+    public static func create(_ frameCount: Int, width: Int, height: Int, frameDelay: TimeInterval, renderer: FrameRenderer) throws -> Animation {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGImageAlphaInfo.PremultipliedLast.rawValue
-        guard let context = CGBitmapContextCreate(nil, width, height, 8, 0, colorSpace, bitmapInfo) else {
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace, bitmapInfo: bitmapInfo) else {
             throw CreateError("Unable to create CGContext")
         }
-        var frames = [CGImageRef]()
+        var frames = [CGImage]()
         for frameIndex in 0..<frameCount {
-            CGContextSaveGState(context)
+            context.saveGState()
             renderer(frameIndex, context)
-            CGContextRestoreGState(context)
-            guard let frameImage = CGBitmapContextCreateImage(context) else {
+            context.restoreGState()
+            guard let frameImage = context.makeImage() else {
                 throw CreateError("Coultn't create image for frame \(frameIndex)")
             }
             frames.append(frameImage)
@@ -54,13 +54,13 @@ extension Animation {
     }
     
     /// Shortcut for creating a looping GIF where the second half reverses the frames of the first half so it ends where it begins
-    public static func createAutoReversedLoop(halfFrameCount: Int, width: Int, height: Int, frameDelay: NSTimeInterval, renderer: FrameRenderer) throws -> Animation {
+    public static func createAutoReversedLoop(_ halfFrameCount: Int, width: Int, height: Int, frameDelay: TimeInterval, renderer: FrameRenderer) throws -> Animation {
         let firstHalf = try create(halfFrameCount, width: width, height: height, frameDelay: frameDelay, renderer: renderer)
-        let secondHalf = firstHalf.frames.reverse().dropFirst().dropLast()
+        let secondHalf = firstHalf.frames.reversed().dropFirst().dropLast()
         return Animation(frames: firstHalf.frames + secondHalf, frameDelay: frameDelay)
     }
 }
 
-private func CreateError(description: String, code: Int = -1) -> NSError {
+private func CreateError(_ description: String, code: Int = -1) -> NSError {
     return NSError(domain: kErrorDomain, code: code, userInfo: [NSLocalizedDescriptionKey: description])
 }

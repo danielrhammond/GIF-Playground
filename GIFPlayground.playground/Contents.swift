@@ -1,5 +1,5 @@
 import UIKit
-import XCPlayground
+import PlaygroundSupport
 
 let frameCount = 25
 let width = 800
@@ -29,16 +29,20 @@ let animation = try! Animation.createAutoReversedLoop(frameCount, width: width, 
         brightness: (b1 + (b2 - b1) * progress),
         alpha: (a1 + (a2 - a1) * progress))
     
-    CGContextSetFillColorWithColor(context, fill.CGColor)
-    CGContextFillRect(context, CGRect(x: 0, y: 0, width: width, height: height))
+    context.setFillColor(fill.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
 }
 
 let imageView = UIImageView(image: animation.animatedImage())
 imageView.frame = CGRect(x: 0, y: 0, width: width, height: height)
-XCPlaygroundPage.currentPage.liveView = imageView
+PlaygroundPage.current.liveView = imageView
 
 // Once you get something you like you can write result out as an animated GIF
 //
-// let resultURL = XCPlaygroundSharedDataDirectoryURL.URLByAppendingPathComponent("result.gif")
+// let resultURL = playgroundSharedDataDirectory.appendingPathComponent("result.gif")
 // let GIFData = animation.animatedGIFRepresentation()
-// GIFData.writeToURL(resultURL, atomically: false)
+// do {
+//     try GIFData.write(to: resultURL)
+// } catch {
+//     print("Error Writing File: \(error.localizedDescription)")
+// }
